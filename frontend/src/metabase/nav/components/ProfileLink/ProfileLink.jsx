@@ -85,7 +85,7 @@ function ProfileLink({
         event: `Navbar;Profile Dropdown;Enter Admin`,
       },
       {
-        title: t`Keyboard Shortcuts`,
+        title: t`Keyboard shortcuts`,
         icon: null,
         action: () => dispatch(setOpenModal("help")),
       },
@@ -147,7 +147,7 @@ function ProfileLink({
             <ActionIcon
               size="lg"
               variant="subtle"
-              color="text-medium"
+              c="text-dark"
               aria-label={t`Settings`}
             >
               <Icon name="gear" size={16} />

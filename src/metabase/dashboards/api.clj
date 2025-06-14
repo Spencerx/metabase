@@ -8,7 +8,6 @@
    [metabase.actions.core :as actions]
    [metabase.analytics.core :as analytics]
    [metabase.api.common :as api]
-   [metabase.api.common.validation :as validation]
    [metabase.api.macros :as api.macros]
    [metabase.app-db.core :as app-db]
    [metabase.channel.email.messages :as messages]
@@ -18,6 +17,7 @@
    [metabase.dashboards.models.dashboard :as dashboard]
    [metabase.dashboards.models.dashboard-card :as dashboard-card]
    [metabase.dashboards.models.dashboard-tab :as dashboard-tab]
+   [metabase.dashboards.settings :as dashboards.settings]
    [metabase.embedding.validation :as embedding.validation]
    [metabase.events.core :as events]
    [metabase.lib-be.metadata.jvm :as lib.metadata.jvm]
@@ -28,11 +28,12 @@
    [metabase.parameters.params :as params]
    [metabase.parameters.schema :as parameters.schema]
    [metabase.permissions.core :as perms]
-   [metabase.permissions.models.query.permissions :as query-perms]
+   [metabase.permissions.validation :as validation]
    [metabase.public-sharing.validation :as public-sharing.validation]
    ^{:clj-kondo/ignore [:deprecated-namespace]}
    [metabase.pulse.core :as pulse]
    [metabase.queries.core :as queries]
+   [metabase.query-permissions.core :as query-perms]
    [metabase.query-processor.api :as api.dataset]
    [metabase.query-processor.dashboard :as qp.dashboard]
    [metabase.query-processor.middleware.constraints :as qp.constraints]
@@ -96,21 +97,22 @@
     {:name       "hydrate-dashboard-details"
      :attributes {:dashboard/id dashboard-id}}
     (binding [params/*field-id-context* (atom params/empty-field-id-context)]
-      (t2/hydrate dashboard [:dashcards
-                             ;; disabled :can_run_adhoc_query for performance reasons in 50 release
-                             [:card :can_write #_:can_run_adhoc_query [:moderation_reviews :moderator_details]]
-                             [:series :can_write #_:can_run_adhoc_query]
-                             :dashcard/action
-                             :dashcard/linkcard-info]
-                  :can_restore
-                  :can_delete
-                  :last_used_param_values
-                  :tabs
-                  :collection_authority_level
-                  :can_write
-                  :param_fields
-                  [:moderation_reviews :moderator_details]
-                  [:collection :is_personal :effective_location]))))
+      (cond->>  [[:dashcards
+                    ;; disabled :can_run_adhoc_query for performance reasons in 50 release
+                  [:card :can_write #_:can_run_adhoc_query [:moderation_reviews :moderator_details]]
+                  [:series :can_write #_:can_run_adhoc_query]
+                  :dashcard/action
+                  :dashcard/linkcard-info]
+                 :can_restore
+                 :can_delete
+                 :tabs
+                 :collection_authority_level
+                 :can_write
+                 :param_fields
+                 [:moderation_reviews :moderator_details]
+                 [:collection :is_personal :effective_location]]
+        (dashboards.settings/dashboards-save-last-used-parameters) (cons :last_used_param_values)
+        true (apply t2/hydrate dashboard)))))
 
 (api.macros/defendpoint :post "/"
   "Create a new Dashboard."
@@ -1119,7 +1121,7 @@
   [{:keys [id param-key]}      :- [:map
                                    [:id ms/PositiveInt]]
    constraint-param-key->value :- [:map-of string? any?]]
-  (let [dashboard (api/read-check :model/Dashboard id)]
+  (let [dashboard (hydrate-dashboard-details (api/read-check :model/Dashboard id))]
     ;; If a user can read the dashboard, then they can lookup filters. This also works with sandboxing.
     (binding [qp.perms/*param-values-query* true]
       (parameters.dashboard/param-values dashboard param-key constraint-param-key->value))))
