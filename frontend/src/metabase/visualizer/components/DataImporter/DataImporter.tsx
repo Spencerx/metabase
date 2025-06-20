@@ -2,7 +2,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useCallback, useState } from "react";
 import { t } from "ttag";
 
-import { useDebouncedValue } from "metabase/hooks/use-debounced-value";
+import { useDebouncedValue } from "metabase/common/hooks/use-debounced-value";
 import { trackSimpleEvent } from "metabase/lib/analytics";
 import { SEARCH_DEBOUNCE_DURATION } from "metabase/lib/constants";
 import { useDispatch, useSelector } from "metabase/lib/redux";
@@ -38,7 +38,7 @@ export const DataImporter = ({ className }: { className?: string }) => {
         handlers.open();
       }
 
-      dispatch(removeDataSource(source));
+      dispatch(removeDataSource({ source }));
     },
     [dataSources.length, handlers, dispatch],
   );
@@ -95,23 +95,22 @@ export const DataImporter = ({ className }: { className?: string }) => {
             height: "100%",
           }}
         >
-          <Box>
-            <TextInput
-              m="xs"
-              variant="filled"
-              value={search}
-              onChange={handleSearchChange}
-              placeholder={t`Search for something`}
-              leftSection={<Icon name="search" />}
-              autoFocus
-            />
-          </Box>
+          <TextInput
+            m="xs"
+            variant="filled"
+            value={search}
+            onChange={handleSearchChange}
+            placeholder={t`Search for something`}
+            leftSection={<Icon name="search" />}
+            autoFocus
+          />
           <Flex
             direction="column"
             pt="sm"
             px="sm"
             style={{
               overflowY: "auto",
+              flex: 1,
             }}
           >
             <DatasetsList

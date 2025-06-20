@@ -18,9 +18,9 @@
    [metabase.lib.schema.common :as lib.schema.common]
    [metabase.lib.schema.id :as lib.schema.id]
    [metabase.lib.util.match :as lib.util.match]
-   [metabase.permissions.models.data-permissions :as data-perms]
-   [metabase.permissions.models.query.permissions :as query-perms]
+   [metabase.permissions.core :as perms]
    [metabase.premium-features.core :refer [defenterprise]]
+   [metabase.query-permissions.core :as query-perms]
    [metabase.query-processor.error-type :as qp.error-type]
    ^{:clj-kondo/ignore [:deprecated-namespace]}
    [metabase.query-processor.middleware.fetch-source-query-legacy :as fetch-source-query-legacy]
@@ -272,7 +272,7 @@
 
     (let [table-ids (sandbox->table-ids sandbox)
           table-id->db-id (into {} (mapv (juxt identity database/table-id->database-id) table-ids))
-          unblocked-table-ids (filter (fn [table-id] (data-perms/user-has-permission-for-table?
+          unblocked-table-ids (filter (fn [table-id] (perms/user-has-permission-for-table?
                                                       api/*current-user-id*
                                                       :perms/view-data
                                                       :unrestricted
@@ -334,7 +334,7 @@
   (u/prog1 (-> (merge
                 (dissoc m :source-table :source-query)
                 (gtap->source gtap))
-               (assoc-in [:source-query ::query-perms/gtapped-table] source-table))
+               (assoc-in [:source-query :query-permissions/gtapped-table] source-table))
     (log/tracef "Applied GTAP: replaced\n%swith\n%s"
                 (u/pprint-to-str 'yellow m)
                 (u/pprint-to-str 'green <>))))
@@ -369,7 +369,7 @@
       original-query
       (-> sandboxed-query
           (assoc ::original-metadata (expected-cols original-query))
-          (update-in [::query-perms/perms :gtaps]
+          (update-in [:query-permissions/perms :gtaps]
                      (fn [required-perms] (merge required-perms
                                                  (sandboxes->required-perms (vals table-id->gtap)))))))))
 
@@ -417,7 +417,7 @@
   :feature :sandboxes
   [{::keys [original-metadata] :as query} rff]
   (fn merge-sandboxing-metadata-rff* [metadata]
-    (let [metadata (assoc metadata :is_sandboxed (some? (get-in query [::query-perms/perms :gtaps])))
+    (let [metadata (assoc metadata :is_sandboxed (some? (get-in query [:query-permissions/perms :gtaps])))
           metadata (if original-metadata
                      (merge-metadata original-metadata metadata)
                      metadata)]

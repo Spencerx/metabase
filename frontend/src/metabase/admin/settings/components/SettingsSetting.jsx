@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import scrollIntoView from "scroll-into-view-if-needed";
 import { jt } from "ttag";
 
-import ExternalLink from "metabase/core/components/ExternalLink";
+import ExternalLink from "metabase/common/components/ExternalLink";
 import { alpha } from "metabase/lib/colors";
 import { Box } from "metabase/ui";
 
@@ -135,7 +135,7 @@ export const SetByEnvVar = ({ setting }) => {
 };
 
 export const SetByEnvVarWrapper = ({ setting, children }) => {
-  if (setting.is_env_setting) {
+  if (setting?.is_env_setting) {
     return (
       <Box mb="lg">
         <SettingHeader
