@@ -6,6 +6,8 @@ title: End-to-end tests with Cypress
 
 Metabase uses Cypress for “end-to-end testing”, that is, tests that are executed against the application as a whole, including the frontend, backend, and application database. These tests are essentially scripts written in JavaScript that run in the web browser: visit different URLs, click various UI elements, type text, and assert that things happen as expected (for example, an element appearing on screen, or a network request occuring).
 
+*Please, get familiar with the [Cypress best practices](https://docs.cypress.io/app/core-concepts/best-practices) before you proceed.*
+
 ## Getting Started
 
 Metabase’s Cypress tests are located in the `e2e/test/scenarios` source tree, in a structure that roughly mirrors Metabase’s URL structure. For example, tests for the admin “datamodel” pages are located in `e2e/test/scenarios/admin/datamodel`.
@@ -230,6 +232,32 @@ On our CI, test failures do not block the merging of a pull request (PR). Howeve
   - Breaks the compatibility between the Embedding SDK and the Sample Apps.
 
 If a PR breaks compatibility between the Embedding SDK and the Sample Apps, the PR can still be merged. However, for each Sample App affected, a separate PR should be created to restore compatibility with the new `@metabase/embedding-sdk-react` version when it is released. These compatibility PRs should be merged only once the Embedding SDK version containing breaking changes is officially released.
+
+### Embedding SDK integration tests with Host Apps
+
+When we want to check integration of the Embedding SDK with consumer's apps that use different frameworks/bundlers, or when we want to test some tricky integration cases like conflicting types, we use Host App tests.
+
+Tests a bit similar to Sample App tests, but:
+- Host Apps are placed in the `metabase` repo `e2e/embedding-sdk-host-apps/<HOST_APP_NAME>`.
+- Host Apps tests are under `e2e/test-host-app/<HOST_APP_NAME>/*`.
+- Host app contains the client application only that is run in a Docker container during e2e testing.
+- Tests use the regular Cypress backend and Cypress infrastructure, so we can mock anything and use Cypress helpers.
+
+#### Local runs
+
+To run these tests locally, run:
+```
+ENTERPRISE_TOKEN=<token> TEST_SUITE=<host_app_name>-e2e OPEN_UI=false EMBEDDING_SDK_VERSION=local HOST_APP_ENVIRONMENT=production yarn test-cypress
+```
+
+For example for the `vite-6-host-app` Host App, run:
+```
+ENTERPRISE_TOKEN=<token> TEST_SUITE=vite-6-host-app-e2e OPEN_UI=false EMBEDDING_SDK_VERSION=local HOST_APP_ENVIRONMENT=production yarn test-cypress
+```
+
+#### CI runs
+
+Same as for Sample App tests - failures don't block a PR from being merged.
 
 ## DB Snapshots
 

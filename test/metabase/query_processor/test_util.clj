@@ -22,8 +22,6 @@
    [metabase.lib.test-util :as lib.tu]
    [metabase.query-processor :as qp]
    [metabase.query-processor.compile :as qp.compile]
-   [metabase.query-processor.middleware.add-implicit-joins :as qp.add-implicit-joins]
-   [metabase.query-processor.middleware.annotate :as qp.annotate]
    [metabase.query-processor.preprocess :as qp.preprocess]
    [metabase.query-processor.store :as qp.store]
    [metabase.query-processor.timezone :as qp.timezone]
@@ -40,15 +38,10 @@
 
 ;;; ---------------------------------------------- Helper Fns + Macros -----------------------------------------------
 
-;; Non-"normal" drivers are tested in [[metabase.timeseries-query-processor-test]] and elsewhere
-(def abnormal-drivers
-  "Drivers that are so weird that we can't run the normal driver tests against them."
-  #{:druid :druid-jdbc})
-
 (defn normal-drivers
   "Drivers that are reasonably normal in the sense that they can participate in the shared driver tests."
   []
-  (set/difference (tx.env/test-drivers) abnormal-drivers))
+  (set/difference (tx.env/test-drivers) data/timeseries-drivers))
 
 (defn normal-drivers-with-feature
   "Set of drivers that support a given `feature`. If additional features are given, it will ensure all features are
@@ -91,18 +84,19 @@
 
     (qp.test/col :venues :id)"
   [table-kw field-kw]
-  (merge
-   (col-defaults)
-   (if (qp.store/initialized?)
-     (-> (lib.metadata/field (qp.store/metadata-provider) (data/id table-kw field-kw))
-         (select-keys [:lib/type :id :table-id :semantic-type :base-type :effective-type :coercion-strategy :name :display-name :fingerprint])
-         #_{:clj-kondo/ignore [:deprecated-var]}
-         qp.store/->legacy-metadata
-         (dissoc :lib/type))
-     (t2/select-one [:model/Field :id :table_id :semantic_type :base_type :effective_type
-                     :coercion_strategy :name :display_name :fingerprint]
-                    :id (data/id table-kw field-kw)))
-   {:field_ref [:field (data/id table-kw field-kw) nil]}))
+  (->> (merge
+        (col-defaults)
+        (if (qp.store/initialized?)
+          (-> (lib.metadata/field (qp.store/metadata-provider) (data/id table-kw field-kw))
+              (select-keys [:lib/type :id :table-id :semantic-type :base-type :effective-type :coercion-strategy :name :display-name :fingerprint])
+              #_{:clj-kondo/ignore [:deprecated-var]}
+              qp.store/->legacy-metadata
+              (dissoc :lib/type))
+          (t2/select-one [:model/Field :id :table_id :semantic_type :base_type :effective_type
+                          :coercion_strategy :name :display_name :fingerprint]
+                         :id (data/id table-kw field-kw)))
+        {:field_ref [:field (data/id table-kw field-kw) nil]})
+       (m/filter-vals some?)))
 
 (defn- expected-column-names
   "Get a sequence of keyword names of Fields belonging to a Table in the order they'd normally appear in QP results."
@@ -189,11 +183,7 @@
     (-> dest-col
         (update :display_name (partial format "%s → %s" (str/replace (:display_name source-col) #"(?i)\sid$" "")))
         (assoc :field_ref    [:field (:id dest-col) {:source-field (:id source-col)}]
-               :fk_field_id  (:id source-col)
-               :source_alias (let [table-name (if (qp.store/initialized?)
-                                                (:name (lib.metadata/table (qp.store/metadata-provider) (data/id dest-table-kw)))
-                                                (t2/select-one-fn :name :model/Table :id (data/id dest-table-kw)))]
-                               (#'qp.add-implicit-joins/join-alias table-name (:name source-col)))))))
+               :fk_field_id  (:id source-col)))))
 
 (declare cols)
 
@@ -270,13 +260,12 @@
 
   Can be used with [[format-rows-by]] to normalize DB-specific bools in results."
   [x]
-  ;; The compiler warns about performance here since (= (hash 0) (hash 0M)), so the `case` will fallback to linear
-  ;; probing for those values. It shouldn't matter for this function, but if it becomes an issue or we want to silence
-  ;; the warning, it could be rewritten to avoid the `case`.
-  (case x
-    (0 0M false) false
-    (1 1M true)  true
-    (throw (ex-info "value is not boolish" {:value x}))))
+  (cond
+    (boolean? x) x
+    (zero? x)    false
+    (= x 1)      true
+    (= x 1M)     true
+    :else        (throw (ex-info "value is not boolish" {:value x}))))
 
 (defn format-rows-by
   "Format the values in result `rows` with the fns at the corresponding indecies in `format-fns`. `rows` can be a
@@ -371,7 +360,7 @@
 (defn cols
   "Return the result `:cols` from query `results`, or throw an Exception if they're missing."
   [results]
-  (or (some->> (data results) :cols (mapv #(into {} (dissoc % :position))))
+  (or (some->> (data results) :cols (mapv #(dissoc % :position)))
       (throw (ex-info "Query does not have any :cols in results." results))))
 
 (defn rows-and-cols
@@ -650,6 +639,5 @@
   be used instead, as is done for ad-hoc native queries."
   ([metadata]
    (metadata->native-form metadata (lib/placeholder-card-entity-id-for-adhoc-query)))
-  ([metadata card-entity-id]
-   (qp.annotate/annotate-native-cols (mapv #(dissoc % :id :ident :source) metadata)
-                                     card-entity-id)))
+  ([metadata _card-entity-id]
+   (mapv #(dissoc % :id :ident :source) metadata)))

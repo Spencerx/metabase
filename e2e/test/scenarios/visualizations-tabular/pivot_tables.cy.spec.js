@@ -1010,7 +1010,7 @@ describe("scenarios > visualizations > pivot tables", { tags: "@slow" }, () => {
     function assertTopMostRowTotalValue(value) {
       // Warning: Fragile selector!
       // TODO: refactor once we have a better HTML structure for tables.
-      cy.get("[role=rowgroup] > div").eq(5).invoke("text").should("eq", value);
+      cy.get("[role=row] > div").eq(5).invoke("text").should("eq", value);
     }
   });
 
@@ -1083,16 +1083,14 @@ describe("scenarios > visualizations > pivot tables", { tags: "@slow" }, () => {
 
     it("should persist column sizes in visualization settings", () => {
       H.visitQuestionAdhoc({ dataset_query: testQuery, display: "pivot" });
-      const leftHeaderColHandle = cy
-        .findAllByTestId("pivot-table-resize-handle")
-        .first();
-      // eslint-disable-next-line no-unsafe-element-filtering
-      const totalHeaderColHandle = cy
-        .findAllByTestId("pivot-table-resize-handle")
-        .last();
+      const leftHeaderColHandle = () =>
+        cy.findAllByTestId("pivot-table-resize-handle").first();
+      const totalHeaderColHandle = () =>
+        // eslint-disable-next-line no-unsafe-element-filtering
+        cy.findAllByTestId("pivot-table-resize-handle").last();
 
-      dragColumnHeader(leftHeaderColHandle, -100);
-      dragColumnHeader(totalHeaderColHandle, 100);
+      dragColumnHeader(leftHeaderColHandle(), -100);
+      dragColumnHeader(totalHeaderColHandle(), 100);
 
       cy.findByTestId("pivot-table").within(() => {
         cy.findByText("User → Source").should(($headerTextEl) => {

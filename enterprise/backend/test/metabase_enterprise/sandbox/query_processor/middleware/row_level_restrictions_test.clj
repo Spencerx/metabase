@@ -17,7 +17,6 @@
    [metabase.permissions.models.data-permissions :as data-perms]
    [metabase.permissions.models.permissions :as perms]
    [metabase.permissions.models.permissions-group :as perms-group]
-   [metabase.permissions.models.query.permissions :as query-perms]
    [metabase.query-processor :as qp]
    [metabase.query-processor.middleware.cache-test :as cache-test]
    [metabase.query-processor.middleware.permissions :as qp.perms]
@@ -34,9 +33,6 @@
    [metabase.util.honey-sql-2 :as h2x]
    [metabase.util.log :as log]
    [toucan2.core :as t2]))
-
-(comment
-  query-perms/keep-me)
 
 (defn- identifier
   ([table-key]
@@ -198,13 +194,11 @@
                                                                           [:=
                                                                            $user_id
                                                                            [:value 5 {:base_type         :type/Integer
-                                                                                      :effective_type    :type/Integer
-                                                                                      :coercion_strategy nil
                                                                                       :semantic_type     :type/FK
                                                                                       :database_type     "INTEGER"
                                                                                       :name              "USER_ID"}]]]
-                                          ::row-level-restrictions/gtap? true
-                                          ::query-perms/gtapped-table    $$checkins}
+                                          ::row-level-restrictions/gtap?   true
+                                          :query-permissions/gtapped-table $$checkins}
                            :joins        [{:source-query
                                            {:source-table                  $$venues
                                             :fields                        [$venues.id $venues.name $venues.category_id
@@ -212,13 +206,11 @@
                                             :filter                        [:=
                                                                             $venues.price
                                                                             [:value 1 {:base_type         :type/Integer
-                                                                                       :effective_type    :type/Integer
-                                                                                       :coercion_strategy nil
                                                                                        :semantic_type     :type/Category
                                                                                        :database_type     "INTEGER"
                                                                                        :name              "PRICE"}]]
-                                            ::row-level-restrictions/gtap? true
-                                            ::query-perms/gtapped-table    $$venues}
+                                            ::row-level-restrictions/gtap?   true
+                                            :query-permissions/gtapped-table $$venues}
                                            :alias     "v"
                                            :strategy  :left-join
                                            :condition [:= $venue_id &v.venues.id]}]
@@ -230,9 +222,9 @@
                                                                 :display_name  "Count"
                                                                 :source        :aggregation
                                                                 :field_ref     [:aggregation 0]}]
-                   ::query-perms/perms                        {:gtaps {:perms/view-data      {(mt/id :checkins) :unrestricted}
-                                                                       :perms/create-queries {(mt/id :checkins) :query-builder
-                                                                                              (mt/id :venues) :query-builder}}}})
+                   :query-permissions/perms {:gtaps {:perms/view-data      {(mt/id :checkins) :unrestricted}
+                                                     :perms/create-queries {(mt/id :checkins) :query-builder
+                                                                            (mt/id :venues) :query-builder}}}})
                 (apply-row-level-permissions
                  (mt/mbql-query checkins
                    {:aggregation [[:count]]
@@ -253,7 +245,7 @@
                               :source-query {:native (str "SELECT * FROM \"PUBLIC\".\"VENUES\" "
                                                           "WHERE \"PUBLIC\".\"VENUES\".\"CATEGORY_ID\" = 50 "
                                                           "ORDER BY \"PUBLIC\".\"VENUES\".\"ID\" ASC")
-                                             ::query-perms/gtapped-table    $$venues
+                                             :query-permissions/gtapped-table $$venues
                                              :params []}}
 
                    ::row-level-restrictions/original-metadata [{:base_type     :type/Integer
@@ -262,7 +254,7 @@
                                                                 :display_name  "Count"
                                                                 :source        :aggregation
                                                                 :field_ref     [:aggregation 0]}]
-                   ::query-perms/perms                        {:gtaps {:perms/create-queries :query-builder-and-native}}})
+                   :query-permissions/perms {:gtaps {:perms/create-queries :query-builder-and-native}}})
                 (apply-row-level-permissions
                  (mt/mbql-query venues
                    {:aggregation [[:count]]}))))))))
@@ -890,8 +882,6 @@
                                 (is (= [:=
                                         [:field (mt/id :products :category) {:join-alias "products"}]
                                         [:value "Widget" {:base_type     :type/Text
-                                                          :effective_type :type/Text
-                                                          :coercion_strategy nil
                                                           :semantic_type  (t2/select-one-fn :semantic_type :model/Field
                                                                                             :id (mt/id :products :category))
                                                           :database_type "CHARACTER VARYING"
@@ -1014,7 +1004,8 @@
               (mt/with-column-remappings [orders.product_id products.title]
                 (testing "Sandboxed results should be the same as they would be if the sandbox was MBQL"
                   (letfn [(format-col [col]
-                            (dissoc col :field_ref :id :table_id :fk_field_id :options :position :lib/external_remap :lib/internal_remap :fk_target_field_id))
+                            (-> (m/filter-keys simple-keyword? col)
+                                (dissoc :field_ref :id :table_id :fk_field_id :options :position :fk_target_field_id)))
                           (format-results [results]
                             (-> results
                                 (update-in [:data :cols] (partial map format-col))
