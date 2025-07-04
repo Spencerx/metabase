@@ -3,34 +3,34 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 
-// polyfills useSyncExternalStore for React 17
-import "./lib/polyfill/use-sync-external-store";
-
 import "metabase/lib/dayjs";
 
+// Import the EE plugins required by the embedding sdk.
 import "sdk-ee-plugins";
 
-// we need to manually import them here to make sure they are included in the bundle
-// as they're dynamically loaded in the main codebase
-import "html2canvas-pro";
-import "jspdf";
+// Imports which are only applicable to the embedding sdk, and not the new iframe embedding.
+import "sdk-specific-imports";
 
 export * from "./hooks/public";
 export * from "./components/public";
 
 export type {
-  ButtonProps,
-  ChartColor,
   CustomDashboardCardMenuItem,
   DashCardMenuItem,
   DashboardCardCustomMenuItem,
   DashboardCardMenuCustomElement,
+  DashboardCardMenu,
+} from "metabase/dashboard/components/DashCard/DashCardMenu/dashcard-menu";
+
+export type {
+  ButtonProps,
+  ChartColor,
   EntityTypeFilterKeys,
-  IconName,
   LoginStatus,
   MetabaseAuthConfig,
   MetabaseAuthConfigWithApiKey,
-  MetabaseAuthConfigWithProvider,
+  MetabaseAuthConfigWithJwt,
+  MetabaseAuthConfigWithSaml,
   MetabaseClickActionPluginsConfig,
   MetabaseColors,
   MetabaseClickAction,
@@ -59,8 +59,12 @@ export type {
 } from "./types";
 
 export type {
+  UserBackendJwtResponse,
   MetabaseFetchRequestTokenFn,
   MetabaseEmbeddingSessionToken,
 } from "./types/refresh-token";
 
-export type { EmbeddingEntityType } from "metabase/embedding-sdk/store.ts";
+export type { EmbeddingEntityType } from "metabase-types/store/embedding-data-picker";
+
+export type { ParameterValues } from "metabase/embedding-sdk/types/dashboard";
+export type { IconName } from "metabase/embedding-sdk/types/icon";

@@ -1,15 +1,16 @@
 import type { EditorState } from "@codemirror/state";
 import { useDisclosure } from "@mantine/hooks";
-import CodeMirror, {
-  EditorSelection,
-  type ReactCodeMirrorRef,
-} from "@uiw/react-codemirror";
+import { EditorSelection } from "@uiw/react-codemirror";
 import cx from "classnames";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useMount } from "react-use";
 import { t } from "ttag";
 import _ from "underscore";
 
+import {
+  CodeMirror,
+  type CodeMirrorRef,
+} from "metabase/common/components/CodeMirror";
 import { useSelector } from "metabase/lib/redux";
 import { getMetadata } from "metabase/selectors/metadata";
 import { Button, Tooltip as ButtonTooltip, Flex, Icon } from "metabase/ui";
@@ -44,6 +45,7 @@ type EditorProps = {
   stageIndex: number;
   expressionMode: Lib.ExpressionMode;
   expressionIndex?: number;
+  availableColumns: Lib.ColumnMetadata[];
   reportTimezone?: string;
   readOnly?: boolean;
   error?: ExpressionError | Error | null;
@@ -67,7 +69,7 @@ export function Editor(props: EditorProps) {
     expressionMode = "expression",
     stageIndex,
     query,
-    expressionIndex,
+    availableColumns,
     readOnly,
     error,
     reportTimezone,
@@ -76,7 +78,7 @@ export function Editor(props: EditorProps) {
     onCloseEditor,
   } = props;
 
-  const ref = useRef<ReactCodeMirrorRef>(null);
+  const ref = useRef<CodeMirrorRef>(null);
   const metadata = useSelector(getMetadata);
   const [isFunctionBrowserOpen, { toggle: toggleFunctionBrowser }] =
     useDisclosure();
@@ -107,6 +109,7 @@ export function Editor(props: EditorProps) {
         stageIndex={stageIndex}
         metadata={metadata}
         reportTimezone={reportTimezone}
+        expressionMode={expressionMode}
         {...props}
       />
     ),
@@ -116,7 +119,7 @@ export function Editor(props: EditorProps) {
     expressionMode,
     query,
     stageIndex,
-    expressionIndex,
+    availableColumns,
     reportTimezone,
     metadata,
     extensions: [customTooltip],
@@ -162,6 +165,11 @@ export function Editor(props: EditorProps) {
           width="100%"
           indentWithTab={false}
           autoFocus
+          autoCorrect="off"
+          tabIndex={0}
+          onFormat={
+            error === null && isValidated ? formatExpression : undefined
+          }
         />
         <Errors error={error} />
 
@@ -225,8 +233,9 @@ function useExpression({
   clause,
   expressionMode,
   stageIndex,
-  query,
   expressionIndex,
+  query,
+  availableColumns,
   metadata,
   onChange,
 }: EditorProps & {
@@ -256,13 +265,13 @@ function useExpression({
       format(clause, {
         query,
         stageIndex,
-        expressionIndex,
+        availableColumns,
         printWidth: 55, // 60 is the width of the editor
       })
         .catch(() => "")
         .then(done);
     },
-    [clause, query, stageIndex, expressionIndex],
+    [clause, query, stageIndex, availableColumns],
   );
 
   const handleChange = useCallback<typeof onChange>(
@@ -295,8 +304,9 @@ function useExpression({
         expressionMode,
         query,
         stageIndex,
-        metadata,
         expressionIndex,
+        metadata,
+        availableColumns,
       });
       if (immediate || errorRef.current) {
         debouncedOnChange.cancel();
@@ -309,10 +319,11 @@ function useExpression({
       query,
       stageIndex,
       expressionMode,
+      expressionIndex,
       metadata,
       handleChange,
       debouncedOnChange,
-      expressionIndex,
+      availableColumns,
     ],
   );
 

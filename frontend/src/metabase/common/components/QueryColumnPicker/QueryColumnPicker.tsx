@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
 
-import { getColumnGroupIcon } from "metabase/common/utils/column-groups";
 import {
   HoverParent,
   QueryColumnInfoIcon,
-} from "metabase/components/MetadataInfo/ColumnInfoIcon";
+} from "metabase/common/components/MetadataInfo/ColumnInfoIcon";
+import { getColumnGroupIcon } from "metabase/common/utils/column-groups";
 import type { ColorName } from "metabase/lib/colors/types";
 import type { IconName } from "metabase/ui";
 import { DelayGroup } from "metabase/ui";
@@ -17,6 +17,14 @@ import { StyledAccordionList } from "./QueryColumnPicker.styled";
 
 export type ColumnListItem = Lib.ColumnDisplayInfo & {
   column: Lib.ColumnMetadata;
+};
+
+export type QueryColumnPickerSection = {
+  key?: string;
+  type?: "action";
+  name: string;
+  items: ColumnListItem[];
+  icon?: IconName;
 };
 
 export interface QueryColumnPickerProps {
@@ -31,7 +39,9 @@ export interface QueryColumnPickerProps {
   maxHeight?: number;
   color?: ColorName;
   checkIsColumnSelected: (item: ColumnListItem) => boolean;
+  extraSections?: QueryColumnPickerSection[];
   onSelect: (column: Lib.ColumnMetadata) => void;
+  onSelectSection?: (section: QueryColumnPickerSection) => void;
   onClose?: () => void;
   "data-testid"?: string;
   width?: string;
@@ -40,17 +50,12 @@ export interface QueryColumnPickerProps {
   disableSearch?: boolean;
 }
 
-type Sections = {
-  name: string;
-  items: ColumnListItem[];
-  icon?: IconName;
-};
-
 export function QueryColumnPicker({
   className,
   query,
   stageIndex,
   columnGroups,
+  extraSections,
   hasBinning = false,
   hasTemporalBucketing = false,
   withDefaultBucketing = true,
@@ -58,6 +63,7 @@ export function QueryColumnPicker({
   color = "brand",
   checkIsColumnSelected,
   onSelect,
+  onSelectSection,
   onClose,
   width,
   "data-testid": dataTestId,
@@ -65,24 +71,34 @@ export function QueryColumnPicker({
   alwaysExpanded,
   disableSearch,
 }: QueryColumnPickerProps) {
-  const sections: Sections[] = useMemo(
-    () =>
-      columnGroups.map((group) => {
-        const groupInfo = Lib.displayInfo(query, stageIndex, group);
+  const sections: QueryColumnPickerSection[] = useMemo(() => {
+    const columnSections = columnGroups.map((group) => {
+      const groupInfo = Lib.displayInfo(query, stageIndex, group);
 
-        const items = Lib.getColumnsFromColumnGroup(group).map((column) => ({
-          ...Lib.displayInfo(query, stageIndex, column),
-          column,
-        }));
+      const items = Lib.getColumnsFromColumnGroup(group).map((column) => ({
+        ...Lib.displayInfo(
+          query,
+          stageIndex,
+          getColumnWithoutBucketing(column, hasTemporalBucketing, hasBinning),
+        ),
+        column,
+      }));
 
-        return {
-          name: groupInfo.displayName,
-          icon: getColumnGroupIcon(groupInfo),
-          items,
-        };
-      }),
-    [query, stageIndex, columnGroups],
-  );
+      return {
+        name: groupInfo.displayName,
+        icon: getColumnGroupIcon(groupInfo),
+        items,
+      };
+    });
+    return [...columnSections, ...(extraSections ?? [])];
+  }, [
+    query,
+    stageIndex,
+    columnGroups,
+    extraSections,
+    hasTemporalBucketing,
+    hasBinning,
+  ]);
 
   const handleSelect = useCallback(
     (column: Lib.ColumnMetadata) => {
@@ -198,6 +214,7 @@ export function QueryColumnPicker({
         sections={sections}
         alwaysExpanded={alwaysExpanded}
         onChange={handleSelectColumn}
+        onChangeSection={onSelectSection}
         itemIsSelected={checkIsColumnSelected}
         renderItemWrapper={renderItemWrapper}
         renderItemName={renderItemName}
@@ -219,6 +236,22 @@ export function QueryColumnPicker({
       />
     </DelayGroup>
   );
+}
+
+// if there is a separate picker for temporal bucketing or binning,
+// we do not want to include it in the column name
+function getColumnWithoutBucketing(
+  column: Lib.ColumnMetadata,
+  hasTemporalBucketing: boolean,
+  hasBinning: boolean,
+) {
+  if (hasTemporalBucketing && Lib.temporalBucket(column) != null) {
+    return Lib.withTemporalBucket(column, null);
+  }
+  if (hasBinning && Lib.binning(column) != null) {
+    return Lib.withBinning(column, null);
+  }
+  return column;
 }
 
 function renderItemName(item: ColumnListItem) {

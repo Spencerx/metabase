@@ -3,6 +3,7 @@ import type {
   ChecklistItemValue,
 } from "metabase/home/components/Onboarding/types";
 import type { KeyboardShortcutId } from "metabase/palette/shortcuts";
+import type { Engine } from "metabase-types/api";
 
 type SimpleEventSchema = {
   event: string;
@@ -20,12 +21,18 @@ type ValidateEvent<
 
 type CSVUploadClickedEvent = ValidateEvent<{
   event: "csv_upload_clicked";
-  triggered_from: "left-nav";
+  triggered_from: "add-data-modal" | "collection";
 }>;
 
 export type DatabaseAddClickedEvent = ValidateEvent<{
   event: "database_add_clicked";
-  triggered_from: "left-nav" | "db-list";
+  triggered_from: "db-list";
+}>;
+
+export type DatabaseEngineSelectedEvent = ValidateEvent<{
+  event: "database_setup_selected";
+  event_detail: Engine["driver-name"];
+  triggered_from: "add-data-modal";
 }>;
 
 type OnboardingChecklistOpenedEvent = ValidateEvent<{
@@ -84,7 +91,7 @@ export type ErrorDiagnosticModalSubmittedEvent = ValidateEvent<{
 
 export type GsheetsConnectionClickedEvent = ValidateEvent<{
   event: "sheets_connection_clicked";
-  triggered_from: "db-page" | "left-nav";
+  triggered_from: "db-page" | "add-data-modal";
 }>;
 
 export type GsheetsImportClickedEvent = ValidateEvent<{
@@ -142,9 +149,37 @@ export type VisualizerModalEvent = ValidateEvent<
     }
 >;
 
+export type EmbeddingSetupStepSeenEvent = ValidateEvent<{
+  event: "embedding_setup_step_seen";
+  event_detail:
+    | "welcome"
+    | "user-creation"
+    | "data-connection"
+    | "table-selection"
+    | "processing"
+    | "add-to-your-app"
+    | "done";
+}>;
+
+export type EventsClickedEvent = ValidateEvent<{
+  event: "events_clicked";
+  triggered_from: "chart" | "collection";
+}>;
+
+export type AddDataModalOpenedEvent = ValidateEvent<{
+  event: "data_add_modal_opened";
+  triggered_from: "getting-started" | "left-nav";
+}>;
+
+export type AddDataModalTabEvent = ValidateEvent<{
+  event: "csv_tab_clicked" | "sheets_tab_clicked" | "database_tab_clicked";
+  triggered_from: "add-data-modal";
+}>;
+
 export type SimpleEvent =
   | CSVUploadClickedEvent
   | DatabaseAddClickedEvent
+  | DatabaseEngineSelectedEvent
   | NewIFrameCardCreatedEvent
   | NewsletterToggleClickedEvent
   | OnboardingChecklistOpenedEvent
@@ -160,4 +195,8 @@ export type SimpleEvent =
   | NewButtonClickedEvent
   | NewButtonItemClickedEvent
   | VisualizeAnotherWayClickedEvent
-  | VisualizerModalEvent;
+  | VisualizerModalEvent
+  | EmbeddingSetupStepSeenEvent
+  | EventsClickedEvent
+  | AddDataModalOpenedEvent
+  | AddDataModalTabEvent;

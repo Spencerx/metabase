@@ -4,7 +4,6 @@
    [medley.core :as m]
    [metabase.analyze.core :as analyze]
    [metabase.api.common :as api]
-   [metabase.api.common.validation :as validation]
    [metabase.api.macros :as api.macros]
    [metabase.collections.models.collection :as collection]
    [metabase.collections.models.collection.root :as collection.root]
@@ -23,6 +22,7 @@
    [metabase.queries.models.card.metadata :as card.metadata]
    [metabase.queries.models.query :as query]
    [metabase.queries.schema :as queries.schema]
+   [metabase.query-permissions.core :as query-perms]
    [metabase.query-processor.api :as api.dataset]
    [metabase.query-processor.card :as qp.card]
    [metabase.query-processor.pivot :as qp.pivot]
@@ -489,7 +489,7 @@
                             [:dashboard_tab_id       {:optional true} [:maybe ms/PositiveInt]]]]
   (check-if-card-can-be-saved query card-type)
   ;; check that we have permissions to run the query that we're trying to save
-  (perms/check-run-permissions-for-query query)
+  (query-perms/check-run-permissions-for-query query)
   ;; check that we have permissions for the collection we're trying to save this card to, if applicable.
   ;; if a `dashboard-id` is specified, check permissions on the *dashboard's* collection ID.
   (collection/check-write-perms-for-collection
@@ -518,7 +518,7 @@
   [card-before-updates card-updates]
   (let [card-updates (m/update-existing card-updates :dataset_query card.metadata/normalize-dataset-query)]
     (when (api/column-will-change? :dataset_query card-before-updates card-updates)
-      (perms/check-run-permissions-for-query (:dataset_query card-updates)))))
+      (query-perms/check-run-permissions-for-query (:dataset_query card-updates)))))
 
 (defn- check-allowed-to-change-embedding
   "You must be a superuser to change the value of `enable_embedding` or `embedding_params`. Embedding must be
@@ -821,7 +821,7 @@
   be enabled."
   [{:keys [card-id]} :- [:map
                          [:card-id ms/PositiveInt]]]
-  (validation/check-has-application-permission :setting)
+  (perms/check-has-application-permission :setting)
   (public-sharing.validation/check-public-sharing-enabled)
   (api/check-not-archived (api/read-check :model/Card card-id))
   (let [{existing-public-uuid :public_uuid} (t2/select-one [:model/Card :public_uuid :card_schema] :id card-id)]
@@ -835,7 +835,7 @@
   "Delete the publicly-accessible link to this Card."
   [{:keys [card-id]} :- [:map
                          [:card-id ms/PositiveInt]]]
-  (validation/check-has-application-permission :setting)
+  (perms/check-has-application-permission :setting)
   (public-sharing.validation/check-public-sharing-enabled)
   (api/check-exists? :model/Card :id card-id, :public_uuid [:not= nil])
   (t2/update! :model/Card card-id
@@ -846,7 +846,7 @@
 (api.macros/defendpoint :get "/public"
   "Fetch a list of Cards with public UUIDs. These cards are publicly-accessible *if* public sharing is enabled."
   []
-  (validation/check-has-application-permission :setting)
+  (perms/check-has-application-permission :setting)
   (public-sharing.validation/check-public-sharing-enabled)
   (t2/select [:model/Card :name :id :public_uuid :card_schema], :public_uuid [:not= nil], :archived false))
 
@@ -854,7 +854,7 @@
   "Fetch a list of Cards where `enable_embedding` is `true`. The cards can be embedded using the embedding endpoints
   and a signed JWT."
   []
-  (validation/check-has-application-permission :setting)
+  (perms/check-has-application-permission :setting)
   (embedding.validation/check-embedding-enabled)
   (t2/select [:model/Card :name :id :card_schema], :enable_embedding true, :archived false))
 
